@@ -10,7 +10,7 @@ from random import randint
 from time import sleep
 import datetime
 import os
-
+import sys
 import schedule
 
 try:
@@ -25,6 +25,8 @@ except ImportError:
 finally:
     from genshinhelper.utils import log, get_cookies, nested_lookup, minutes_to_hours, MESSAGE_TEMPLATE, DAIRY_TEMPLATE, FINANCE_TEMPLATE
 from onepush import notify
+
+debug_mode = sys.platform == "win32" or config.DEBUG
 
 version = '1.0.3'
 banner = f'''
@@ -58,13 +60,21 @@ def time_in_range(interval: str):
 
 
 def notify_me(title, content):
-    notifier = config.ONEPUSH.get('notifier')
-    params = config.ONEPUSH.get('params')
-    if not notifier or not params:
-        log.info('No notification method configured ...')
-        return
-    log.info('Preparing to send notification ...')
-    return notify(notifier, title=title, content=content, **params)
+    result = None
+    push_list = []
+    if isinstance(config.ONEPUSH, list):
+        push_list = config.ONEPUSH
+    else:
+        push_list.append(config.ONEPUSH)
+    for push in push_list:
+        notifier = push.get('notifier')
+        params = push.get('params')
+        if not notifier or not params:
+            log.info('No notification method configured ...')
+            return
+        log.info('Preparing to send notification ...')
+        result = notify(notifier, title=title, content=content, **params)
+    return result
 
 
 def task_common(r, d, text_temp1, text_temp2):
@@ -262,7 +272,8 @@ def run_task(name, cookies, func):
 
 def job1():
     log.info(banner)
-    random_sleep(config.RANDOM_SLEEP_SECS_RANGE)
+    if not debug_mode:
+        random_sleep(config.RANDOM_SLEEP_SECS_RANGE)
     log.info('Starting...')
     finally_result_dict = {
         i['name']: run_task(i['name'], i['cookies'], i['function'])
@@ -291,13 +302,13 @@ def job2():
         ys = gh.YuanShen(i)
         roles_info = ys.roles_info
         expedition_fmt = '└─ {character_name:<8} {status_:^8} {remained_time_fmt}\n'
-        RESIN_TIMER_TEMPLATE = '''实时便笺
-    🔅{nickname} {level} {region_name}
-    原粹树脂: {current_resin} / {max_resin} {resin_recovery_datetime_fmt}
-    今日委托: {finished_task_num} / {total_task_num}
-    周本减半: {remain_resin_discount_num} / {resin_discount_num_limit}
-    探索派遣: {current_expedition_num} / {max_expedition_num}
-      {expedition_details}'''
+        RESIN_TIMER_TEMPLATE = '''🔅{nickname}/{level}/{region_name}🔅
+★ 原粹树脂: {current_resin} / {max_resin} 
+★ 今日委托: {finished_task_num} / {total_task_num}
+★ 周本减半: {remain_resin_discount_num} / {resin_discount_num_limit}
+★ 探索派遣: {current_expedition_num} / {max_expedition_num}
+★ 树脂恢复：{resin_recovery_datetime_fmt}
+★ {status}'''
 
         for i in roles_info:
             daily_note = ys.get_daily_note(i['game_uid'], i['region'])
@@ -316,15 +327,9 @@ def job2():
             daily_note.update(i)
             resin_recovery_time = int(daily_note['resin_recovery_time'])
             resin_recovery_datetime = datetime.datetime.now() + datetime.timedelta(seconds=resin_recovery_time)
-            daily_note['resin_recovery_datetime_fmt'] = f"将于{resin_recovery_datetime.strftime('%Y-%m-%d %H:%M:%S')}全部恢复" if resin_recovery_time else '原粹树脂已全部恢复, 记得及时使用哦'
+            daily_note['resin_recovery_datetime_fmt'] = f"{resin_recovery_datetime.strftime('%m-%d %H:%M')}" if resin_recovery_time else '已全部恢复'
             daily_note['expedition_details'] = '      '.join(details)
-            message = RESIN_TIMER_TEMPLATE.format(**daily_note)
-            result.append(message)
-            log.info(message)
-
-            is_markdown = config.ONEPUSH.get('params', {}).get('markdown')
-            content = f'```\n{message}```' if is_markdown else message
-            status = '未满足推送条件, 监控模式运行中...'
+            status = []
 
             count = 5
             IS_NOTIFY_STR = f"UID_{i['game_uid']}_IS_NOTIFY_STR"
@@ -339,35 +344,53 @@ def job2():
             os.environ[RESIN_LAST_RECOVERY_TIME] = os.environ[RESIN_LAST_RECOVERY_TIME] if os.environ.get(RESIN_LAST_RECOVERY_TIME) else str(resin_recovery_datetime.timestamp())
 
             is_full = daily_note['current_resin'] >= daily_note['max_resin']
+            is_reward_received = daily_note['is_extra_task_reward_received']
             is_threshold = daily_note['current_resin'] >= int(config.RESIN_THRESHOLD)
             is_resin_notify = int(os.environ[RESIN_NOTIFY_CNT_STR]) < count
             is_resin_threshold_notify = int(os.environ[RESIN_THRESHOLD_NOTIFY_CNT_STR]) < 1
             is_do_not_disturb = time_in_range(config.RESIN_TIMER_DO_NOT_DISTURB)
             is_resin_recovery_time_changed = abs(float(os.environ[RESIN_LAST_RECOVERY_TIME]) - resin_recovery_datetime.timestamp()) > 400
 
-            if is_full and is_resin_notify and not is_do_not_disturb:
-                status = '原粹树脂回满啦!'
+            if config.RESIN_ENABLE_VALUE and is_full and is_resin_notify and not is_do_not_disturb:
+                status.append('原粹树脂回满啦!')
                 os.environ[IS_NOTIFY_STR] = 'True'
                 os.environ[RESIN_NOTIFY_CNT_STR] = str(int(os.environ[RESIN_NOTIFY_CNT_STR]) + 1)
-            elif is_threshold and is_resin_threshold_notify and not is_do_not_disturb:
-                status = '原粹树脂快满啦!'
+            elif config.RESIN_ENABLE_VALUE and is_threshold and is_resin_threshold_notify and not is_do_not_disturb:
+                status.append('原粹树脂快满啦!')
                 os.environ[IS_NOTIFY_STR] = 'True'
                 os.environ[RESIN_THRESHOLD_NOTIFY_CNT_STR] = str(int(os.environ[RESIN_THRESHOLD_NOTIFY_CNT_STR]) + 1)
-            elif is_resin_recovery_time_changed:
-                status = '原粹树脂恢复时间变动啦!'
-                os.environ[IS_NOTIFY_STR] = 'True'
-            elif 'Finished' in str(daily_note['expeditions']) and int(os.environ[EXPEDITION_NOTIFY_CNT_STR]) < count and not is_do_not_disturb:
-                status = '探索派遣完成啦!'
-                os.environ[IS_NOTIFY_STR] = 'True'
-                os.environ[EXPEDITION_NOTIFY_CNT_STR] = str(int(os.environ[EXPEDITION_NOTIFY_CNT_STR]) + 1)
+            if  is_resin_recovery_time_changed:
+                status.append('原粹树脂恢复时间变动啦!')
+                if config.RESIN_ENABLE_CHANGE:
+                    os.environ[IS_NOTIFY_STR] = 'True'
+            if not is_reward_received:
+                status.append('每日委托奖励还没有领取!')
+                if config.RESIN_ENABLE_TASK:
+                    os.environ[IS_NOTIFY_STR] = 'True'
+            if 'Finished' in str(daily_note['expeditions']) and int(os.environ[EXPEDITION_NOTIFY_CNT_STR]) < count and not is_do_not_disturb:
+                status.append('探索派遣完成啦!')
+                if config.RESIN_ENABLE_EXPEDITION:
+                    os.environ[IS_NOTIFY_STR] = 'True'
+                    os.environ[EXPEDITION_NOTIFY_CNT_STR] = str(int(os.environ[EXPEDITION_NOTIFY_CNT_STR]) + 1)
             
             os.environ[RESIN_NOTIFY_CNT_STR] = os.environ[RESIN_NOTIFY_CNT_STR] if is_full else '0'
             os.environ[RESIN_THRESHOLD_NOTIFY_CNT_STR] = os.environ[RESIN_THRESHOLD_NOTIFY_CNT_STR] if is_threshold else '0'
             os.environ[EXPEDITION_NOTIFY_CNT_STR] = os.environ[EXPEDITION_NOTIFY_CNT_STR] if 'Finished' in str(daily_note['expeditions']) else '0' 
             os.environ[RESIN_LAST_RECOVERY_TIME] = str(resin_recovery_datetime.timestamp())
-
-            title = f'原神签到小助手提醒您: {status}'
+            if not status or len(status) == 0:
+                status.append('未满足推送条件, 监控模式运行中...')
+            status = "\n★".join(status)
+            daily_note['status'] = status
+            message = RESIN_TIMER_TEMPLATE.format(**daily_note)
+            result.append(message)
+            log.info(message)
+            is_markdown = config.ONEPUSH.get('params', {}).get('markdown')
+            content = f'```\n{message}```' if is_markdown else message
+            
+            title = f'★原神签到小助手★'
             log.info(title)
+            if debug_mode:
+                os.environ[IS_NOTIFY_STR] = 'True'
             if os.environ[IS_NOTIFY_STR] == 'True':
                 notify_me(title, content)
     return result
@@ -386,6 +409,9 @@ def run_once():
 
 def main():
     run_once()
+    if debug_mode:
+        log.info('in test environment, skip scheduled jobs!')
+        return
     schedule.every().day.at(config.CHECK_IN_TIME).do(job1)
     if config.COOKIE_RESIN_TIMER:
         schedule.every(int(config.CHECK_RESIN_SECS)).seconds.do(job2)

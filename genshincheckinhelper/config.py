@@ -15,6 +15,10 @@ CONFIG_DICT = {
     'CHECK_RESIN_SECS': 'CHECK_RESIN_SECS',
     'RESIN_THRESHOLD': 'RESIN_THRESHOLD',
     'RESIN_TIMER_DO_NOT_DISTURB': 'RESIN_TIMER_DO_NOT_DISTURB',
+    'RESIN_ENABLE_VALUE':'RESIN_ENABLE_VALUE',
+    'RESIN_ENABLE_CHANGE':'RESIN_ENABLE_CHANGE',
+    'RESIN_ENABLE_TASK':'RESIN_ENABLE_TASK',
+    'RESIN_ENABLE_EXPEDITION':'RESIN_ENABLE_EXPEDITION',
     'COOKIE_MIHOYOBBS': 'COOKIE_MIHOYOBBS',
     'COOKIE_RESIN_TIMER': 'COOKIE_RESIN_TIMER',
     'COOKIE_BH3': 'COOKIE_BH3',
@@ -24,7 +28,8 @@ CONFIG_DICT = {
     'COOKIE_WEIBO': 'COOKIE_WEIBO',
     'COOKIE_KA': 'COOKIE_KA',
     'SHOPTOKEN': 'SHOPTOKEN',
-    'ONEPUSH': 'ONEPUSH'
+    'ONEPUSH': 'ONEPUSH',
+    'DEBUG': 'DEBUG',
 }
 
 
@@ -61,6 +66,8 @@ class Config(object):
             'CHECK_IN_TIME': '06:00',
             'CHECK_RESIN_SECS': 900,
             'RESIN_THRESHOLD': 150,
+            'RESIN_ENABLE_VALUE': True,
+            'DEBUG':False,
             'RESIN_TIMER_DO_NOT_DISTURB': '23:00-07:00'
         }
 
@@ -68,7 +75,7 @@ class Config(object):
             if key == k and not value:
                 value = v
 
-        if key == 'ONEPUSH' and '{' in value:
+        if key == 'ONEPUSH' and ('{' in value or '[' in value):
             value = json.loads(value)
         return value
 
