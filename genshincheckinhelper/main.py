@@ -298,6 +298,10 @@ def job1():
 
 def job2():
     result = []
+    is_do_not_disturb = time_in_range(config.RESIN_TIMER_DO_NOT_DISTURB)
+    if is_do_not_disturb:
+        log.info('免打扰时段，实时便笺检查跳过...')
+        return result
     for i in get_cookies(config.COOKIE_RESIN_TIMER):
         ys = gh.YuanShen(i)
         roles_info = ys.roles_info
@@ -348,14 +352,13 @@ def job2():
             is_threshold = daily_note['current_resin'] >= int(config.RESIN_THRESHOLD)
             is_resin_notify = int(os.environ[RESIN_NOTIFY_CNT_STR]) < count
             is_resin_threshold_notify = int(os.environ[RESIN_THRESHOLD_NOTIFY_CNT_STR]) < 1
-            is_do_not_disturb = time_in_range(config.RESIN_TIMER_DO_NOT_DISTURB)
             is_resin_recovery_time_changed = abs(float(os.environ[RESIN_LAST_RECOVERY_TIME]) - resin_recovery_datetime.timestamp()) > 400
 
-            if config.RESIN_ENABLE_VALUE and is_full and is_resin_notify and not is_do_not_disturb:
+            if config.RESIN_ENABLE_VALUE and is_full and is_resin_notify:
                 status.append('原粹树脂回满啦!')
                 os.environ[IS_NOTIFY_STR] = 'True'
                 os.environ[RESIN_NOTIFY_CNT_STR] = str(int(os.environ[RESIN_NOTIFY_CNT_STR]) + 1)
-            elif config.RESIN_ENABLE_VALUE and is_threshold and is_resin_threshold_notify and not is_do_not_disturb:
+            elif config.RESIN_ENABLE_VALUE and is_threshold and is_resin_threshold_notify:
                 status.append('原粹树脂快满啦!')
                 os.environ[IS_NOTIFY_STR] = 'True'
                 os.environ[RESIN_THRESHOLD_NOTIFY_CNT_STR] = str(int(os.environ[RESIN_THRESHOLD_NOTIFY_CNT_STR]) + 1)
@@ -367,7 +370,7 @@ def job2():
                 status.append('每日委托奖励还没有领取!')
                 if config.RESIN_ENABLE_TASK:
                     os.environ[IS_NOTIFY_STR] = 'True'
-            if 'Finished' in str(daily_note['expeditions']) and int(os.environ[EXPEDITION_NOTIFY_CNT_STR]) < count and not is_do_not_disturb:
+            if 'Finished' in str(daily_note['expeditions']) and int(os.environ[EXPEDITION_NOTIFY_CNT_STR]) < count:
                 status.append('探索派遣完成啦!')
                 if config.RESIN_ENABLE_EXPEDITION:
                     os.environ[IS_NOTIFY_STR] = 'True'
@@ -383,12 +386,11 @@ def job2():
             daily_note['status'] = status
             message = RESIN_TIMER_TEMPLATE.format(**daily_note)
             result.append(message)
-            log.info(message)
+            log.info(message.replace('\n',' '))
             is_markdown = config.ONEPUSH.get('params', {}).get('markdown')
             content = f'```\n{message}```' if is_markdown else message
             
             title = f'★原神签到小助手★'
-            log.info(title)
             if debug_mode:
                 os.environ[IS_NOTIFY_STR] = 'True'
             if os.environ[IS_NOTIFY_STR] == 'True':
