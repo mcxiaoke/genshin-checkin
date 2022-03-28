@@ -379,7 +379,7 @@ def job2():
             os.environ[RESIN_LAST_RECOVERY_TIME] = str(resin_recovery_datetime.timestamp())
             if not status or len(status) == 0:
                 status.append('未满足推送条件, 监控模式运行中...')
-            status = "\n★".join(status)
+            status = "\n★ ".join(status)
             daily_note['status'] = status
             message = RESIN_TIMER_TEMPLATE.format(**daily_note)
             result.append(message)
