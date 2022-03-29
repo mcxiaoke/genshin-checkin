@@ -375,7 +375,13 @@ def job2():
                 if config.RESIN_ENABLE_EXPEDITION:
                     os.environ[IS_NOTIFY_STR] = 'True'
                     os.environ[EXPEDITION_NOTIFY_CNT_STR] = str(int(os.environ[EXPEDITION_NOTIFY_CNT_STR]) + 1)
-            
+            nowHour = datetime.datetime.now().hour
+            if nowHour == 23 and daily_note['current_resin'] > 75:
+                # add smart resin reminder before go to bed
+                # resin maybe full before 9：00 next day, need notify
+                status.append('原粹树脂明天早上将回满！')
+                if config.RESIN_ENABLE_SMART:
+                    os.environ[IS_NOTIFY_STR] = 'True'
             os.environ[RESIN_NOTIFY_CNT_STR] = os.environ[RESIN_NOTIFY_CNT_STR] if is_full else '0'
             os.environ[RESIN_THRESHOLD_NOTIFY_CNT_STR] = os.environ[RESIN_THRESHOLD_NOTIFY_CNT_STR] if is_threshold else '0'
             os.environ[EXPEDITION_NOTIFY_CNT_STR] = os.environ[EXPEDITION_NOTIFY_CNT_STR] if 'Finished' in str(daily_note['expeditions']) else '0' 
