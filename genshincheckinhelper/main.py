@@ -353,6 +353,7 @@ def job2():
             is_resin_notify = int(os.environ[RESIN_NOTIFY_CNT_STR]) < count
             is_resin_threshold_notify = int(os.environ[RESIN_THRESHOLD_NOTIFY_CNT_STR]) < 1
             is_resin_recovery_time_changed = abs(float(os.environ[RESIN_LAST_RECOVERY_TIME]) - resin_recovery_datetime.timestamp()) > 400
+            is_transformer_ready = daily_note['transformer']['obtained'] and daily_note['transformer']['recovery_time']['Day'] == 0 and ['transformer']['recovery_time']['Hour'] == 0
 
             if config.RESIN_ENABLE_VALUE and is_full and is_resin_notify:
                 status.append('原粹树脂回满啦!')
@@ -386,6 +387,11 @@ def job2():
             os.environ[RESIN_THRESHOLD_NOTIFY_CNT_STR] = os.environ[RESIN_THRESHOLD_NOTIFY_CNT_STR] if is_threshold else '0'
             os.environ[EXPEDITION_NOTIFY_CNT_STR] = os.environ[EXPEDITION_NOTIFY_CNT_STR] if 'Finished' in str(daily_note['expeditions']) else '0' 
             os.environ[RESIN_LAST_RECOVERY_TIME] = str(resin_recovery_datetime.timestamp())
+            
+            if config.RESIN_ENABLE_TRANSFORMER and is_transformer_ready:
+                status.append('参量质变仪可以使用了!')
+                os.environ[IS_NOTIFY_STR] = 'True'
+            
             if not status or len(status) == 0:
                 status.append('未满足推送条件, 监控模式运行中...')
             status = "\n★ ".join(status)
