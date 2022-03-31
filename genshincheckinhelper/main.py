@@ -334,7 +334,7 @@ def job2():
             daily_note['resin_recovery_datetime_fmt'] = f"{resin_recovery_datetime.strftime('%m-%d %H:%M')}" if resin_recovery_time else '已全部恢复'
             daily_note['expedition_details'] = '      '.join(details)
             status = []
-
+            now = datetime.datetime.now()
             count = 5
             IS_NOTIFY_STR = f"UID_{i['game_uid']}_IS_NOTIFY_STR"
             RESIN_NOTIFY_CNT_STR = f"UID_{i['game_uid']}_RESIN_NOTIFY_CNT"
@@ -376,13 +376,18 @@ def job2():
                 if config.RESIN_ENABLE_EXPEDITION:
                     os.environ[IS_NOTIFY_STR] = 'True'
                     os.environ[EXPEDITION_NOTIFY_CNT_STR] = str(int(os.environ[EXPEDITION_NOTIFY_CNT_STR]) + 1)
-            nowHour = datetime.datetime.now().hour
-            if nowHour == 23 and daily_note['current_resin'] > 75:
-                # add smart resin reminder before go to bed
-                # resin maybe full before 9：00 next day, need notify
-                status.append('原粹树脂明天早上将回满！')
-                if config.RESIN_ENABLE_SMART:
+            if config.RESIN_ENABLE_SMART:
+                if now.hour == 23 and daily_note['current_resin'] > 75:
+                    # add smart resin reminder before go to bed
+                    # resin maybe full before 9：00 next day, need notify
+                    status.append('原粹树脂明天早上将回满！')
                     os.environ[IS_NOTIFY_STR] = 'True'
+                if now.hour > 20 and not is_reward_received:
+                    status.append('每日委托奖励还没有领取！')
+                    os.environ[IS_NOTIFY_STR] = 'True'
+                if now.weekday() == 6 and now.hour> 20 and daily_note['remain_resin_discount_num'] > 0:
+                   status.append('三次减半周本还没有完成！') 
+                   os.environ[IS_NOTIFY_STR] = 'True'
             os.environ[RESIN_NOTIFY_CNT_STR] = os.environ[RESIN_NOTIFY_CNT_STR] if is_full else '0'
             os.environ[RESIN_THRESHOLD_NOTIFY_CNT_STR] = os.environ[RESIN_THRESHOLD_NOTIFY_CNT_STR] if is_threshold else '0'
             os.environ[EXPEDITION_NOTIFY_CNT_STR] = os.environ[EXPEDITION_NOTIFY_CNT_STR] if 'Finished' in str(daily_note['expeditions']) else '0' 
