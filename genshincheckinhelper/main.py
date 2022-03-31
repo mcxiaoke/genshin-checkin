@@ -353,8 +353,8 @@ def job2():
             is_resin_notify = int(os.environ[RESIN_NOTIFY_CNT_STR]) < count
             is_resin_threshold_notify = int(os.environ[RESIN_THRESHOLD_NOTIFY_CNT_STR]) < 1
             is_resin_recovery_time_changed = abs(float(os.environ[RESIN_LAST_RECOVERY_TIME]) - resin_recovery_datetime.timestamp()) > 400
-            is_transformer_ready = daily_note['transformer']['obtained'] and daily_note['transformer']['recovery_time']['Day'] == 0 and ['transformer']['recovery_time']['Hour'] == 0
-
+            transformer = daily_note['transformer']
+            is_transformer_ready = transformer['obtained'] and transformer['recovery_time']['Day'] == 0 and transformer['recovery_time']['Hour'] == 0
             if config.RESIN_ENABLE_VALUE and is_full and is_resin_notify:
                 status.append('原粹树脂回满啦!')
                 os.environ[IS_NOTIFY_STR] = 'True'
