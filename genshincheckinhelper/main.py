@@ -354,7 +354,7 @@ def job2():
             is_resin_threshold_notify = int(os.environ[RESIN_THRESHOLD_NOTIFY_CNT_STR]) < 1
             is_resin_recovery_time_changed = abs(float(os.environ[RESIN_LAST_RECOVERY_TIME]) - resin_recovery_datetime.timestamp()) > 400
             transformer = daily_note['transformer']
-            is_transformer_ready = transformer['obtained'] and transformer['recovery_time']['Day'] == 0 and transformer['recovery_time']['Hour'] == 0
+            is_transformer_ready = transformer['obtained'] and transformer['recovery_time']['reached'] and transformer['recovery_time']['Day'] == 0
             if config.RESIN_ENABLE_VALUE and is_full and is_resin_notify:
                 status.append('原粹树脂回满啦!')
                 os.environ[IS_NOTIFY_STR] = 'True'
@@ -377,6 +377,9 @@ def job2():
                     os.environ[IS_NOTIFY_STR] = 'True'
                     os.environ[EXPEDITION_NOTIFY_CNT_STR] = str(int(os.environ[EXPEDITION_NOTIFY_CNT_STR]) + 1)
             if config.RESIN_ENABLE_SMART:
+                if now.hour == 9 and daily_note['current_resin'] > 110:
+                    status.append('原粹树脂今天下午将回满！')
+                    os.environ[IS_NOTIFY_STR] = 'True'
                 if now.hour == 23 and daily_note['current_resin'] > 75:
                     # add smart resin reminder before go to bed
                     # resin maybe full before 9：00 next day, need notify
